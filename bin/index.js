@@ -8,10 +8,11 @@ const path = require("path-extra");
 const srt2vtt = require("srt-to-vtt");
 const webvtt = require("node-webvtt");
 const invariant = require("tiny-invariant");
-const translateit = require("translatte");
 const updateDotenv = require("update-dotenv");
 const moment = require("moment");
 //const uniqueFilename = require("unique-filename");
+
+const { TranslationServiceClient } = require("@google-cloud/translate").v3beta1;
 
 const MAX_MONTHLY_CHAR_COUNT = 500000; // MAX Google API v3 Monthly free character counts
 const SAFE_MONTHLY_CHAR_COUNT = MAX_MONTHLY_CHAR_COUNT - 300; // SAFE Counter of 499 700 characters
@@ -21,6 +22,10 @@ const TODAY_UTC_STR = TODAY.toDate().toUTCString();
 
 // Load ENV vars
 require("dotenv").config();
+
+// Google account settings
+const PROJECT_ID = require("../private-key.json").project_id;
+const LOCATION = process.env.GOOGLE_LOCATION;
 
 // Last time count was updated
 const LAST_COUNT_DATE = moment.utc(process.env.LAST_COUNT_DATE); // UTC String Date
@@ -76,17 +81,17 @@ yargs
   )
   .command(
     "info",
-    "Show current counter info",
+    "Show current monthly Google Translate APIv3 character counter",
     yargs => {},
     async argv => {
       await googleAPILimitCheck();
-      console.log(`Current character counter: ${CHAR_COUNT}`);
+      console.log(`Current monthly character counter: ${CHAR_COUNT}`);
     }
   )
   .option("slang", {
     alias: "s",
     describe: "current lang of the file",
-    default: "en"
+    default: "en-US"
   })
   .option("tlang", {
     alias: "t",
@@ -252,31 +257,52 @@ function convert(src, dest) {
 }
 
 // default lang 'source:EN target:ES'
-async function translate(src, dest, slang = "en", tlang = "es") {
+async function translate(src, dest, slang = "en-US", tlang = "es") {
   try {
     const data = fs.readFileSync(src, "utf8");
     const parsed = webvtt.parse(data);
-    for (const cue of parsed.cues) {
-      CHAR_COUNT += cue.text.length;
-      invariant(
-        // [dest] file will not be create is Google API free limit is reached
-        CHAR_COUNT < SAFE_MONTHLY_CHAR_COUNT,
-        `Reached secure character counter for Google API v3 monthly free plan`
-      );
-      const { text } = await translateit(cue.text, { from: slang, to: tlang });
-      cue.text = text;
-      try {
-        await updateDotenv({
-          CHAR_COUNT: CHAR_COUNT.toString(),
-          LAST_COUNT_DATE: TODAY_UTC_STR
-        });
-      } catch (e) {
-        console.error(
-          ".env file vars CHAT_COUNT and LAST_COUNT_DATE could not be update"
-        );
-        throw e;
-      }
+    const parsedText = parsed.cues.map(cue => cue.text);
+    const len = parsedText.reduce((c, text) => (c += text.length), 0); // get total chars lenght
+
+    // this value will be write back to .env file on success translation
+    CHAR_COUNT += len;
+    invariant(
+      // [dest] file will not be create is Google API free limit is reached
+      CHAR_COUNT < SAFE_MONTHLY_CHAR_COUNT,
+      `Reached secure character counter for Google API v3 monthly free plan`
+    );
+
+    // Google Part
+    const translationClient = new TranslationServiceClient();
+    // Construct request
+    const request = {
+      parent: translationClient.locationPath(PROJECT_ID, LOCATION),
+      contents: parsedText,
+      mimeType: "text/plain", // mime types: text/plain, text/html
+      sourceLanguageCode: slang,
+      targetLanguageCode: tlang
+    };
+
+    const [response] = await translationClient.translateText(request);
+
+    for (let i = 0; i < parsedText.length; i++) {
+      parsed.cues[i].text = response.translations[i].translatedText;
     }
+
+    // update .env with translate details
+    try {
+      await updateDotenv({
+        CHAR_COUNT: CHAR_COUNT.toString(),
+        LAST_COUNT_DATE: TODAY_UTC_STR
+      });
+    } catch (e) {
+      console.error(
+        ".env file vars CHAT_COUNT and LAST_COUNT_DATE could not be update"
+      );
+      throw e;
+    }
+
+    // write to translate VTT
     const compiled = webvtt.compile(parsed);
     fs.writeFileSync(dest, compiled);
   } catch (e) {
