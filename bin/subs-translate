@@ -24,11 +24,11 @@ const TODAY_UTC_STR = TODAY.toDate().toUTCString();
 require("dotenv").config();
 
 // Google account settings
-const PROJECT_ID = require("../private-key.json").project_id;
+const PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
 const LOCATION = process.env.GOOGLE_LOCATION;
 
 // Last time count was updated
-const LAST_COUNT_DATE = moment.utc(process.env.LAST_COUNT_DATE); // UTC String Date
+const LAST_COUNT_DATE = moment.utc(process.env.LAST_COUNT_DATE || Date.now()); // UTC String Date
 
 // this value will be MUTATE on each file translation
 let CHAR_COUNT = parseInt(process.env.CHAR_COUNT || 0);
@@ -91,7 +91,7 @@ yargs
   .option("slang", {
     alias: "s",
     describe: "current lang of the file",
-    default: "en-US"
+    default: "en"
   })
   .option("tlang", {
     alias: "t",
@@ -159,16 +159,25 @@ function validatePath(argv, ext = ".vtt") {
   } else {
     dest = path.replaceExt(src, ext);
   }
-  invariant(
-    force || !existsSync(dest),
-    `Provide [dest] "${dest}" file already exist, use '--force' for overwrite it`
-  );
-  return { src, dest };
+
+  let skipped = false;
+
+  if (existsSync(dest) && !force) {
+    console.error(
+      `SKIPPED! file: "${dest}", already exist, use '--force' for overwrite it`
+    );
+    skipped = true;
+  }
+
+  return { src, dest, skipped };
 }
 
 function convertFile(argv) {
   const { purge } = argv;
-  const { src, dest } = validatePath(argv);
+  const { src, dest, skipped } = validatePath(argv);
+
+  if (skipped) return;
+
   convert(src, dest);
   console.log(`CONVERTED file: ${dest}`);
   if (purge) {
@@ -196,7 +205,9 @@ function convertDir(argv_) {
 
 function translateFile(argv) {
   const { purge, skip, slang, tlang } = argv;
-  const { src, dest } = validatePath(argv, `.${tlang}.vtt`);
+  const { src, dest, skipped } = validatePath(argv, `.${tlang}.vtt`);
+
+  if (skipped) return;
 
   // Avoid re-translate on folder recursion
   if (src.toLowerCase().endsWith(`.${tlang}.vtt`)) {
@@ -257,7 +268,7 @@ function convert(src, dest) {
 }
 
 // default lang 'source:EN target:ES'
-async function translate(src, dest, slang = "en-US", tlang = "es") {
+async function translate(src, dest, slang = "en", tlang = "es") {
   try {
     const data = fs.readFileSync(src, "utf8");
     const parsed = webvtt.parse(data);
