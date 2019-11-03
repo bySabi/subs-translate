@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+lib
+coverage
+dist
+package-lock.json
+
+# private files
+subs
+private-key.json
+.env

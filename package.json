@@ -1,0 +1,23 @@
+{
+  "name": "subs-translate",
+  "version": "0.0.1",
+  "description": "",
+  "bin": {
+    "subs-translate": "bin/index.js"
+  },
+  "author": "bySabi Files",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/translate": "^5.0.1",
+    "dotenv": "^8.2.0",
+    "moment": "^2.24.0",
+    "node-webvtt": "^1.6.1",
+    "path-extra": "^4.3.0",
+    "srt-to-vtt": "^1.1.3",
+    "tiny-invariant": "^1.0.6",
+    "translatte": "^2.5.5",
+    "unique-filename": "^1.1.1",
+    "update-dotenv": "git+https://github.com/davehensley/update-dotenv.git",
+    "yargs": "^14.2.0"
+  }
+}
