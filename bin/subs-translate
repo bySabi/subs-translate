@@ -3,74 +3,46 @@
 
 const yargs = require("yargs");
 const fs = require("fs");
-const os = require("os");
 const path = require("path-extra");
 const srt2vtt = require("srt-to-vtt");
 const webvtt = require("node-webvtt");
 const invariant = require("tiny-invariant");
-const updateDotenv = require("update-dotenv");
-const moment = require("moment");
-//const uniqueFilename = require("unique-filename");
+const { existsSync, existsDirSync, existsFileSync } = require("../src/util");
+const log = require("../src/logger");
+const { puppyTrans } = require("../src/puppy");
+const {
+  googleAPITrans,
+  googleAPIkeySetupValidation
+} = require("../src/googleV3");
 
-const { TranslationServiceClient } = require("@google-cloud/translate").v3beta1;
-
-const MAX_MONTHLY_CHAR_COUNT = 500000; // MAX Google API v3 Monthly free character counts
-const SAFE_MONTHLY_CHAR_COUNT = MAX_MONTHLY_CHAR_COUNT - 300; // SAFE Counter of 499 700 characters
-
-const TODAY = moment.utc(); // create UTC date
-const TODAY_UTC_STR = TODAY.toDate().toUTCString();
-
-// Load ENV vars
-require("dotenv").config();
-
-// Google account settings
-const PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
-const LOCATION = process.env.GOOGLE_LOCATION;
-
-// Last time count was updated
-const LAST_COUNT_DATE = moment.utc(process.env.LAST_COUNT_DATE || Date.now()); // UTC String Date
-
-// this value will be MUTATE on each file translation
-let CHAR_COUNT = parseInt(process.env.CHAR_COUNT || 0);
-
-async function googleAPILimitCheck() {
-  // START_BILL_DATE var is a UTC String Date
-  const startBillDate = moment.utc(process.env.START_BILL_DATE);
-
-  // PREVENT! translate subs beyond Google API 12 month trial
-  invariant(
-    TODAY.diff(startBillDate, "months") < 12,
-    `Google APIv3 12 month trial limit reached`
-  );
-
-  const monthBillDate = startBillDate.add(
-    // add months of difference between START_BILL_DATE and Today
-    TODAY.diff(startBillDate, "months"),
-    "months"
-  );
-
-  // cleanup monthly character counter if LAST_COUNT_DATE it is before the `monthBillDate`
-  if (LAST_COUNT_DATE.diff(monthBillDate, "days") < 0) {
-    CHAR_COUNT = 0;
-    await updateDotenv({ CHAR_COUNT: CHAR_COUNT.toString() });
-  }
-
-  // PREVENT! translate subs beyond monthly char limit
-  invariant(
-    CHAR_COUNT < SAFE_MONTHLY_CHAR_COUNT,
-    `Google APIv3 monthly character limit reached`
-  );
-}
+// prevent warnning
+process.setMaxListeners(0);
 
 yargs
   .usage("Usage: $0 <command> [options]")
   .command(
-    "$0 <src> [dest]",
-    "Translate source path SRT|VTT to VTT dest path",
+    "translate-api <src> [dest]",
+    "Translate source path SRT|VTT to VTT dest path using Google API v3 [Registration required]",
     yargs => {},
     async argv => {
-      await googleAPILimitCheck();
-      handler(argv, { file: translateFile, dir: translateDir });
+      googleAPIkeySetupValidation(argv.key);
+      handler(argv, {
+        file: arg => translateFile(arg, googleAPITrans),
+        dir: arg => translateDir(arg, googleAPITrans)
+      });
+    }
+  )
+  .command(
+    "translate <src> [dest]",
+    "Translate source path SRT|VTT to VTT dest path using webscraping Google Translator",
+    yargs => {},
+    async argv => {
+      // use a true|false ENV var
+      process.env.USE_PROXY = argv.proxy;
+      handler(argv, {
+        file: arg => translateFile(arg, puppyTrans),
+        dir: arg => translateDir(arg, puppyTrans)
+      });
     }
   )
   .command(
@@ -79,15 +51,9 @@ yargs
     yargs => {},
     argv => handler(argv, { file: convertFile, dir: convertDir })
   )
-  .command(
-    "info",
-    "Show current monthly Google Translate APIv3 character counter",
-    yargs => {},
-    async argv => {
-      await googleAPILimitCheck();
-      console.log(`Current monthly character counter: ${CHAR_COUNT}`);
-    }
-  )
+  .option("key", {
+    describe: "path to Google private key JSON"
+  })
   .option("slang", {
     alias: "s",
     describe: "current lang of the file",
@@ -119,6 +85,11 @@ yargs
   .option("skip", {
     describe: "skip if already .LANG.vtt file exists",
     default: true,
+    type: "boolean"
+  })
+  .option("proxy", {
+    describe: "Use proxy for webscrapping Google Translator page",
+    default: false,
     type: "boolean"
   })
   .alias("v", "version")
@@ -203,7 +174,7 @@ function convertDir(argv_) {
   });
 }
 
-function translateFile(argv) {
+async function translateFile(argv, translateFn) {
   const { purge, skip, slang, tlang } = argv;
   const { src, dest, skipped } = validatePath(argv, `.${tlang}.vtt`);
 
@@ -220,40 +191,41 @@ function translateFile(argv) {
     return;
   }
 
-  /* DISABLED: Automatic .srt check and convertion 
-  const isSrt = src.toLowerCase().endsWith(".srt");
-  if (isSrt) {
-    const randomTmpfile = uniqueFilename(os.tmpdir()) + ".vtt";
-    convertFile({ src, dest: randomTmpfile });
-    src = path.resolve(randomTmpfile);
-  }
-*/
-  translate(src, dest, slang, tlang).then(() => {
-    console.log(`TRANSLATE file: ${dest}`);
+  try {
+    await translate(src, dest, slang, tlang, translateFn);
     // purge? on success
+    console.info(`TRANSLATED file: ${dest}`);
     if (purge) {
       fs.unlinkSync(argv.src); // remove file original
       console.log(`PURGED file: ${argv.src}`);
     }
-  });
+  } catch (e) {
+    throw e;
+  }
 }
 
-function translateDir(argv_) {
+async function translateDir(argv_, translateFn) {
   const { depth, tlang } = argv_;
   const argv = { ...argv_, out: "", dest: "" }; // 'out' and [dest] are ignored
   const src = path.resolve(argv_.src); // absolute path
-  fs.readdirSync(src).forEach(file => {
+
+  const dir = fs.readdirSync(src);
+  for (const file of dir) {
     const fullPath = path.join(src, file);
     const isDirectory = fs.lstatSync(fullPath).isDirectory();
 
     const isVtt = fullPath.toLowerCase().endsWith(".vtt");
 
-    if (isDirectory && depth) {
-      translateDir({ ...argv, src: fullPath });
-    } else if (isVtt) {
-      translateFile({ ...argv, src: fullPath });
+    try {
+      if (isDirectory && depth) {
+        translateDir({ ...argv, src: fullPath }, translateFn);
+      } else if (isVtt) {
+        await translateFile({ ...argv, src: fullPath }, translateFn);
+      }
+    } catch (e) {
+      // catched
     }
-  });
+  }
 }
 
 function convert(src, dest) {
@@ -268,85 +240,30 @@ function convert(src, dest) {
 }
 
 // default lang 'source:EN target:ES'
-async function translate(src, dest, slang = "en", tlang = "es") {
+async function translate(src, dest, slang = "en", tlang = "es", translateFn) {
   try {
     const data = fs.readFileSync(src, "utf8");
     const parsed = webvtt.parse(data);
     const parsedText = parsed.cues.map(cue => cue.text);
-    const len = parsedText.reduce((c, text) => (c += text.length), 0); // get total chars lenght
 
-    // this value will be write back to .env file on success translation
-    CHAR_COUNT += len;
-    invariant(
-      // [dest] file will not be create is Google API free limit is reached
-      CHAR_COUNT < SAFE_MONTHLY_CHAR_COUNT,
-      `Reached secure character counter for Google API v3 monthly free plan`
-    );
-
-    // Google Part
-    const translationClient = new TranslationServiceClient();
-    // Construct request
-    const request = {
-      parent: translationClient.locationPath(PROJECT_ID, LOCATION),
-      contents: parsedText,
-      mimeType: "text/plain", // mime types: text/plain, text/html
-      sourceLanguageCode: slang,
-      targetLanguageCode: tlang
-    };
-
-    const [response] = await translationClient.translateText(request);
+    // call translate function
+    const response = await translateFn(parsedText, slang, tlang);
 
     for (let i = 0; i < parsedText.length; i++) {
-      parsed.cues[i].text = response.translations[i].translatedText;
-    }
-
-    // update .env with translate details
-    try {
-      await updateDotenv({
-        CHAR_COUNT: CHAR_COUNT.toString(),
-        LAST_COUNT_DATE: TODAY_UTC_STR
-      });
-    } catch (e) {
-      console.error(
-        ".env file vars CHAT_COUNT and LAST_COUNT_DATE could not be update"
-      );
-      throw e;
+      parsed.cues[i].text = response[i];
     }
 
     // write to translate VTT
     const compiled = webvtt.compile(parsed);
     fs.writeFileSync(dest, compiled);
   } catch (e) {
-    console.error(e);
+    const msg = `ERROR translating: ${src}`;
+    if (e instanceof TypeError) {
+      log.warn(msg);
+      console.error(msg);
+    } else {
+      console.error(e);
+    }
     throw e;
   }
-}
-
-function existsSync(filePath) {
-  try {
-    fs.lstatSync(filePath);
-  } catch (err) {
-    if (err.code == "ENOENT") return false;
-  }
-  return true;
-}
-
-function existsDirSync(filePath) {
-  let result;
-  try {
-    result = fs.lstatSync(filePath).isDirectory();
-  } catch (err) {
-    result = false;
-  }
-  return result;
-}
-
-function existsFileSync(filePath) {
-  let result;
-  try {
-    result = fs.lstatSync(filePath).isFile();
-  } catch (err) {
-    result = false;
-  }
-  return result;
 }

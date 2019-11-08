@@ -9,13 +9,16 @@
   "license": "MIT",
   "dependencies": {
     "@google-cloud/translate": "^5.0.1",
+    "data-store": "^4.0.3",
     "dotenv": "^8.2.0",
     "moment": "^2.24.0",
+    "node-fetch": "^2.6.0",
     "node-webvtt": "^1.6.1",
     "path-extra": "^4.3.0",
+    "puppeteer": "^2.0.0",
+    "simple-node-logger": "^18.12.23",
     "srt-to-vtt": "^1.1.3",
     "tiny-invariant": "^1.0.6",
-    "update-dotenv": "git+https://github.com/davehensley/update-dotenv.git",
     "yargs": "^14.2.0"
   }
 }

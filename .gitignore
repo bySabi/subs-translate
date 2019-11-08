@@ -5,7 +5,11 @@ coverage
 dist
 package-lock.json
 
+# temporal files
+store.json
+
 # private files
 subs
 private-key.json
 .env
+subs-translate.log
