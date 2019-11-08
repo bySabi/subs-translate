@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 // SEPERATOR "<*>"
 const SEPARATOR_RE = new RegExp(/\n<\*>[\n]?/);
