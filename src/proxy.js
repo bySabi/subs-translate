@@ -62,10 +62,6 @@ async function testedProxy() {
   }
 }
 
-function workingProxy() {
-  return testedProxy();
-}
-
 async function proxyList() {
   const res = await fetch(PROXY_LIST_URL);
   const list = await res.text();
@@ -91,4 +87,4 @@ async function init() {
   FETCHED_PROXYLIST = store.get("proxy.fetched");
 }
 
-module.exports = workingProxy;
+module.exports = testedProxy;

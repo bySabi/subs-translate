@@ -1,100 +1,97 @@
 #!/usr/bin/env node
-"use strict";
+'use strict';
 
-const yargs = require("yargs");
-const fs = require("fs");
-const path = require("path-extra");
-const srt2vtt = require("srt-to-vtt");
-const webvtt = require("node-webvtt");
-const invariant = require("tiny-invariant");
-const { existsSync, existsDirSync, existsFileSync } = require("../src/util");
-const log = require("../src/logger");
-const { puppyTrans } = require("../src/puppy");
-const {
-  googleAPITrans,
-  googleAPIkeySetupValidation
-} = require("../src/googleV3");
+const yargs = require('yargs');
+const fs = require('fs');
+const path = require('path-extra');
+const srt2vtt = require('srt-to-vtt');
+const webvtt = require('node-webvtt');
+const invariant = require('tiny-invariant');
+const { existsSync, existsDirSync, existsFileSync } = require('../src/util');
+const log = require('../src/logger');
+const { puppyTrans } = require('../src/puppy');
+const { googleAPITrans, googleAPIkeySetupValidation } = require('../src/googleV3');
 
 // prevent warnning
 process.setMaxListeners(0);
 
 yargs
-  .usage("Usage: $0 <command> [options]")
+  .usage('Usage: $0 <command> [options]')
   .command(
-    "translate-api <src> [dest]",
-    "Translate source path SRT|VTT to VTT dest path using Google API v3 [Registration required]",
-    yargs => {},
+    'translate-api <src> [dest]',
+    'Translate source path SRT|VTT to VTT dest path using Google API v3 [Registration required]',
+    () => {},
     async argv => {
       googleAPIkeySetupValidation(argv.key);
       handler(argv, {
         file: arg => translateFile(arg, googleAPITrans),
-        dir: arg => translateDir(arg, googleAPITrans)
+        dir: arg => translateDir(arg, googleAPITrans),
       });
     }
   )
   .command(
-    "translate <src> [dest]",
-    "Translate source path SRT|VTT to VTT dest path using webscraping Google Translator",
-    yargs => {},
+    'translate <src> [dest]',
+    'Translate source path SRT|VTT to VTT dest path using webscraping Google Translator',
+    () => {},
     async argv => {
-      // use a true|false ENV var
+      // set a true|false ENV var
       process.env.USE_PROXY = argv.proxy;
       handler(argv, {
         file: arg => translateFile(arg, puppyTrans),
-        dir: arg => translateDir(arg, puppyTrans)
+        dir: arg => translateDir(arg, puppyTrans),
       });
     }
   )
   .command(
-    "convert <src> [dest]",
-    "Convert only source path SRT to VTT dest path",
-    yargs => {},
+    'convert <src> [dest]',
+    'Convert only source path SRT to VTT dest path',
+    () => {},
     argv => handler(argv, { file: convertFile, dir: convertDir })
   )
-  .option("key", {
-    describe: "path to Google private key JSON"
+  .option('key', {
+    describe: 'path to Google private key JSON',
   })
-  .option("slang", {
-    alias: "s",
-    describe: "current lang of the file",
-    default: "en"
+  .option('slang', {
+    alias: 's',
+    describe: 'current lang of the file',
+    default: 'en',
   })
-  .option("tlang", {
-    alias: "t",
-    describe: "target lang of the file",
-    default: "es"
+  .option('tlang', {
+    alias: 't',
+    describe: 'target lang of the file',
+    default: 'es',
   })
-  .option("depth", {
+  .option('depth', {
     describe: "depth folder recursion. Disable with '--no-depth'",
-    default: true
-  })
-  .option("purge", {
-    describe: "purge original file",
-    default: false,
-    type: "boolean"
-  })
-  .option("out", {
-    describe: "output to folder",
-    type: "string"
-  })
-  .option("force", {
-    describe: "force overwrite existing file",
-    default: false,
-    type: "boolean"
-  })
-  .option("skip", {
-    describe: "skip if already .LANG.vtt file exists",
     default: true,
-    type: "boolean"
   })
-  .option("proxy", {
-    describe: "Use proxy for webscrapping Google Translator page",
+  .option('purge', {
+    describe: 'purge original file',
     default: false,
-    type: "boolean"
+    type: 'boolean',
   })
-  .alias("v", "version")
-  .help("h")
-  .alias("h", "help").argv;
+  .option('out', {
+    describe: 'output to folder',
+    type: 'string',
+  })
+  .option('force', {
+    describe: 'force overwrite existing file',
+    default: false,
+    type: 'boolean',
+  })
+  .option('skip', {
+    describe: 'skip if already .LANG.vtt file exists',
+    default: true,
+    type: 'boolean',
+  })
+  .option('proxy', {
+    describe: 'Use proxy with webscrapping Google Translator page',
+    default: false,
+    type: 'boolean',
+  })
+  .alias('v', 'version')
+  .help('h')
+  .alias('h', 'help').argv;
 
 function handler(argv, handle) {
   const { src } = argv;
@@ -110,23 +107,17 @@ function handler(argv, handle) {
   }
 }
 
-function validatePath(argv, ext = ".vtt") {
+function validatePath(argv, ext = '.vtt') {
   const { force, out } = argv;
   const src = path.resolve(argv.src); // absolute path
   let dest;
   // if we got '--out' folder '[dest]' are ignored
   if (out) {
-    invariant(
-      existsDirSync(out),
-      `Provide "--out" path "${out}" is not a folder`
-    );
-    dest = path.resolve(out, path.basename(src, ".srt") + ext);
+    invariant(existsDirSync(out), `Provide "--out" path "${out}" is not a folder`);
+    dest = path.resolve(out, path.basename(src, '.srt') + ext);
   } else if (argv.dest) {
     dest = path.resolve(argv.dest);
-    invariant(
-      !existsDirSync(dest),
-      `Provide [dest] "${dest}" can't be a folder, use '--out'`
-    );
+    invariant(!existsDirSync(dest), `Provide [dest] "${dest}" can't be a folder, use '--out'`);
   } else {
     dest = path.replaceExt(src, ext);
   }
@@ -134,9 +125,7 @@ function validatePath(argv, ext = ".vtt") {
   let skipped = false;
 
   if (existsSync(dest) && !force) {
-    console.error(
-      `SKIPPED! file: "${dest}", already exist, use '--force' for overwrite it`
-    );
+    console.error(`SKIPPED! file: "${dest}", already exist, use '--force' for overwrite it`);
     skipped = true;
   }
 
@@ -159,19 +148,20 @@ function convertFile(argv) {
 
 function convertDir(argv_) {
   const { depth } = argv_;
-  const argv = { ...argv_, out: "", dest: "" }; // 'out' and [dest] are ignored
+  const argv = { ...argv_, out: '', dest: '' }; // 'out' and [dest] are ignored
   const src = path.resolve(argv_.src); // absolute path
-  fs.readdirSync(src).forEach(file => {
+  const dir = fs.readdirSync(src);
+  for (const file of dir) {
     const fullPath = path.join(src, file);
     const isDirectory = fs.lstatSync(fullPath).isDirectory();
-    const isSrt = fullPath.toLowerCase().endsWith(".srt");
+    const isSrt = fullPath.toLowerCase().endsWith('.srt');
 
     if (isDirectory && depth) {
       convertDir({ ...argv, src: fullPath });
     } else if (isSrt) {
       convertFile({ ...argv, src: fullPath });
     }
-  });
+  }
 }
 
 async function translateFile(argv, translateFn) {
@@ -191,22 +181,18 @@ async function translateFile(argv, translateFn) {
     return;
   }
 
-  try {
-    await translate(src, dest, slang, tlang, translateFn);
-    // purge? on success
-    console.info(`TRANSLATED file: ${dest}`);
-    if (purge) {
-      fs.unlinkSync(argv.src); // remove file original
-      console.log(`PURGED file: ${argv.src}`);
-    }
-  } catch (e) {
-    throw e;
+  await translate(src, dest, slang, tlang, translateFn);
+  // purge? on success
+  console.info(`TRANSLATED file: ${dest}`);
+  if (purge) {
+    fs.unlinkSync(argv.src); // remove file original
+    console.log(`PURGED file: ${argv.src}`);
   }
 }
 
 async function translateDir(argv_, translateFn) {
-  const { depth, tlang } = argv_;
-  const argv = { ...argv_, out: "", dest: "" }; // 'out' and [dest] are ignored
+  const { depth } = argv_;
+  const argv = { ...argv_, out: '', dest: '' }; // 'out' and [dest] are ignored
   const src = path.resolve(argv_.src); // absolute path
 
   const dir = fs.readdirSync(src);
@@ -214,7 +200,7 @@ async function translateDir(argv_, translateFn) {
     const fullPath = path.join(src, file);
     const isDirectory = fs.lstatSync(fullPath).isDirectory();
 
-    const isVtt = fullPath.toLowerCase().endsWith(".vtt");
+    const isVtt = fullPath.toLowerCase().endsWith('.vtt');
 
     try {
       if (isDirectory && depth) {
@@ -223,7 +209,7 @@ async function translateDir(argv_, translateFn) {
         await translateFile({ ...argv, src: fullPath }, translateFn);
       }
     } catch (e) {
-      // catched
+      // continue
     }
   }
 }
@@ -240,9 +226,9 @@ function convert(src, dest) {
 }
 
 // default lang 'source:EN target:ES'
-async function translate(src, dest, slang = "en", tlang = "es", translateFn) {
+async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
   try {
-    const data = fs.readFileSync(src, "utf8");
+    const data = fs.readFileSync(src, 'utf8');
     const parsed = webvtt.parse(data);
     const parsedText = parsed.cues.map(cue => cue.text);
 
@@ -257,8 +243,8 @@ async function translate(src, dest, slang = "en", tlang = "es", translateFn) {
     const compiled = webvtt.compile(parsed);
     fs.writeFileSync(dest, compiled);
   } catch (e) {
-    const msg = `ERROR translating: ${src}`;
     if (e instanceof TypeError) {
+      const msg = `ERROR translating: ${src}`;
       log.warn(msg);
       console.error(msg);
     } else {
