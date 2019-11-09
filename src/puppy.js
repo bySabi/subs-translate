@@ -61,8 +61,9 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
     const querys = buildQueryURL(text, slang, tlang);
     raw = [];
 
-    const page = await browser.newPage();
+    const page = await browser.newPage(); // comment for debug
     for (const query of querys) {
+      //const page = await browser.newPage(); // uncomment for debug
       await page.goto(query, { waitUntil: 'load' });
       let [res] = await page.$$eval('span.tlid-translation.translation', elem =>
         elem.map(e => e.innerText)

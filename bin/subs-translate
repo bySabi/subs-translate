@@ -248,12 +248,8 @@ async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
     const compiled = webvtt.compile(parsed);
     fs.writeFileSync(dest, compiled);
   } catch (e) {
-    if (e instanceof TypeError) {
-      const msg = `translating: ${src}`;
-      log.error(msg);
-    } else {
-      log.error(e);
-    }
+    const msg = `translating: ${src}`;
+    log.error(msg);
     throw e;
   }
 }
