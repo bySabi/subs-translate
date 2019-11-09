@@ -55,14 +55,14 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
   let raw;
   try {
     browser = await puppeteer.launch({
-      //headless: false,
+      headless: false,
       args: [`--proxy-server=${proxy}`],
     });
     const querys = buildQueryURL(text, slang, tlang);
     raw = [];
 
+    const page = await browser.newPage();
     for (const query of querys) {
-      const page = await browser.newPage();
       await page.goto(query, { waitUntil: 'load' });
       let [res] = await page.$$eval('span.tlid-translation.translation', elem =>
         elem.map(e => e.innerText)
@@ -75,7 +75,7 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
     throw e;
   } finally {
     // comment this when headless: false
-    await browser.close();
+    //await browser.close();
   }
   return raw;
 }
