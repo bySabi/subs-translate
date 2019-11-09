@@ -250,6 +250,7 @@ async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
   } catch (e) {
     const msg = `translating: ${src}`;
     log.error(msg);
+    log.error(e);
     throw e;
   }
 }
