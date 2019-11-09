@@ -12,11 +12,11 @@ The Google Translate API v3 can be used free of charge for the first 12 months a
 
 ### First steps
 
-* Create an account in Google Cloud Platform with a valid credit card.
+- Create an account in Google Cloud Platform with a valid credit card.
 
-* Follow the steps on this page: https://cloud.google.com/translate/docs/quickstart to create a new project and enable it to use the Cloud Translation API service
+- Follow the steps on this page: https://cloud.google.com/translate/docs/quickstart to create a new project and enable it to use the Cloud Translation API service
 
-* Download the JSON file that contains the private data of the created project. Be very careful not to share it in a public repository like GITHUB
+- Download the JSON file that contains the private data of the created project. Be very careful not to share it in a public repository like GITHUB
 
 ### Install globally
 
@@ -31,6 +31,7 @@ The Google Translate API v3 can be used free of charge for the first 12 months a
 ```
 
 ## CLI
+
 ```
 
 $ subs-translate --help
@@ -43,33 +44,37 @@ dest path using Google API v3 [Registration required]
 subs-translate convert <src> [dest] Convert only source path SRT to VTT dest path
 
 Options:
---key path to Google private key JSON
---slang, -s current lang of the file 					  [default: "en"]
---tlang, -t target lang of the file 					  [default: "es"]
---depth depth folder recursion. Disable with '--no-depth' [default: true]
---purge purge original file 							  [default: false]
---out output to folder  
---force force overwrite existing file 					  [default: false]
---skip skip if already .LANG.vtt file exists 			  [default: true]
--h, --help Show help  
+--key     Path to Google private key JSON
+--slang, -s   Current lang of the file 					   [default: "en"]
+--tlang, -t   Target lang of the file 					   [default: "es"]
+--depth   Depth folder recursion. Disable with '--no-depth'  [default: true]
+--purge   Purge original file 							       [default: false]
+--out     Output to folder
+--force   Force overwrite existing file 					 [default: false]
+--skip    Skip if already .LANG.vtt file exists 	 [default: true]
+--level   The logs level: info, warn, error        [default: "info"]
+-h, --help    Show help
 -v, --version Show version number
 
 ```
 
 ### CLI Examples
 
-* Bulk convert all SRT files to VTT in a folder recursively
+- Bulk convert all SRT files to VTT in a folder recursively
+
 ```bash
 $ subs-translate convert videos/
 ```
 
-* Translate SRT file
+- Translate SRT file
+
 ```bash
 $ subs-translate convert example.srt example.vtt
 $ subs-translate translate-api example.vtt --slang en --tlang es --key ~/Dekstop/private-key.json
 ```
 
-* Bulk translate all VTT in a folder, without recursion, from english to spanish (default translation)
+- Bulk translate all VTT in a folder, without recursion, from english to spanish (default translation)
+
 ```bash
 $ subs-translate translate-api myVTTfolder/ --no-depth --key ~/Dekstop/private-key.json
 ```
@@ -92,4 +97,7 @@ This is a project created for my own use. I have shared it in case anyone has to
 ## License
 
 [MIT](./LICENSE)
+
+```
+
 ```

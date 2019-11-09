@@ -1,7 +1,6 @@
-const SimpleNodeLogger = require("simple-node-logger");
+const SimpleNodeLogger = require('simple-node-logger');
 const opts = {
-  logFilePath: "./subs-translate.log",
-  timestampFormat: "YYYY-MM-DD HH:mm"
+  timestampFormat: '',
 };
 
-module.exports = SimpleNodeLogger.createSimpleFileLogger(opts);
+module.exports = SimpleNodeLogger.createSimpleLogger(opts);

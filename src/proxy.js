@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const moment = require('moment');
 const invariant = require('tiny-invariant');
 const store = require('./store');
+const log = require('./looger');
 const { translateWithProxy } = require('./puppy');
 
 const PROXY_LIST_URL =
@@ -50,7 +51,7 @@ async function testedProxy() {
     invariant(res[0] === 'perro', 'TRANSLATE_USING_PROXY_FAILED');
     success = true;
   } catch (err) {
-    console.error(`FAIL proxy: ${proxy} => ${err.message}`);
+    log.error(`proxy: ${proxy} => ${err.message} FAIL`);
     invalidCurrentProxy();
     success = false;
   }

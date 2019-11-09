@@ -49,52 +49,57 @@ yargs
     argv => handler(argv, { file: convertFile, dir: convertDir })
   )
   .option('key', {
-    describe: 'path to Google private key JSON',
+    describe: 'Path to Google private key JSON',
   })
   .option('slang', {
     alias: 's',
-    describe: 'current lang of the file',
+    describe: 'Current lang of the file',
     default: 'en',
   })
   .option('tlang', {
     alias: 't',
-    describe: 'target lang of the file',
+    describe: 'Target lang of the file',
     default: 'es',
   })
   .option('depth', {
-    describe: "depth folder recursion. Disable with '--no-depth'",
+    describe: "Depth folder recursion. Disable with '--no-depth'",
     default: true,
   })
   .option('purge', {
-    describe: 'purge original file',
+    describe: 'Purge original file',
     default: false,
     type: 'boolean',
   })
   .option('out', {
-    describe: 'output to folder',
+    describe: 'Output to folder',
     type: 'string',
   })
   .option('force', {
-    describe: 'force overwrite existing file',
+    describe: 'Force overwrite existing file',
     default: false,
     type: 'boolean',
   })
   .option('skip', {
-    describe: 'skip if already .LANG.vtt file exists',
+    describe: 'Skip if already .LANG.vtt file exists',
     default: true,
     type: 'boolean',
   })
   .option('proxy', {
-    describe: 'Use proxy with webscrapping Google Translator page',
+    describe: 'Use proxy with Google Translator page',
     default: false,
     type: 'boolean',
+  })
+  .option('level', {
+    describe: 'The logs level: info, warn, error',
+    default: 'info',
   })
   .alias('v', 'version')
   .help('h')
   .alias('h', 'help').argv;
 
 function handler(argv, handle) {
-  const { src } = argv;
+  const { src, level } = argv;
+  log.setLevel(level);
   try {
     const stat = fs.lstatSync(src);
     if (stat.isFile(src)) {
@@ -103,7 +108,7 @@ function handler(argv, handle) {
       handle.dir(argv);
     } else throw new Error(`Passed ${src} is unknown`);
   } catch (err) {
-    console.error(err.message);
+    log.error(err.message);
   }
 }
 
@@ -125,7 +130,7 @@ function validatePath(argv, ext = '.vtt') {
   let skipped = false;
 
   if (existsSync(dest) && !force) {
-    console.error(`SKIPPED! file: "${dest}", already exist, use '--force' for overwrite it`);
+    log.info(`SKIPPED! file: "${dest}", already exist, use '--force' for overwrite it`);
     skipped = true;
   }
 
@@ -139,10 +144,10 @@ function convertFile(argv) {
   if (skipped) return;
 
   convert(src, dest);
-  console.log(`CONVERTED file: ${dest}`);
+  log.warn(`CONVERTED file: ${dest}`);
   if (purge) {
     fs.unlinkSync(src);
-    console.log(`PURGED file: ${src}`);
+    log.warn(`PURGED file: ${src}`);
   }
 }
 
@@ -177,16 +182,16 @@ async function translateFile(argv, translateFn) {
 
   // Skip existing translation. Avoid re-translate file
   if (skip && existsFileSync(dest)) {
-    console.log(`SKIPPED file: ${dest}`);
+    log.info(`SKIPPED file: ${dest}`);
     return;
   }
 
   await translate(src, dest, slang, tlang, translateFn);
   // purge? on success
-  console.info(`TRANSLATED file: ${dest}`);
+  log.warn(`TRANSLATED file: ${dest}`);
   if (purge) {
     fs.unlinkSync(argv.src); // remove file original
-    console.log(`PURGED file: ${argv.src}`);
+    log.warn(`PURGED file: ${argv.src}`);
   }
 }
 
@@ -220,7 +225,7 @@ function convert(src, dest) {
       .pipe(srt2vtt())
       .pipe(fs.createWriteStream(dest));
   } catch (e) {
-    console.error(e);
+    log.error(e);
     throw e;
   }
 }
@@ -244,11 +249,10 @@ async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
     fs.writeFileSync(dest, compiled);
   } catch (e) {
     if (e instanceof TypeError) {
-      const msg = `ERROR translating: ${src}`;
-      log.warn(msg);
-      console.error(msg);
+      const msg = `translating: ${src}`;
+      log.error(msg);
     } else {
-      console.error(e);
+      log.error(e);
     }
     throw e;
   }

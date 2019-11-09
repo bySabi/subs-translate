@@ -1,3 +1,4 @@
+const log = require('./logger');
 const puppeteer = require('puppeteer');
 
 // SEPERATOR "<*>"
@@ -82,7 +83,7 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
 async function translate(text, slang = 'en', tlang = 'es') {
   const proxy = JSON.parse(process.env.USE_PROXY) ? await require('./proxy')() : '';
 
-  if (proxy) console.info(`Using proxy: ${proxy}`);
+  if (proxy) log.info(`Using proxy: ${proxy}`);
   return translateWithProxy(text, slang, tlang, proxy);
 }
 
