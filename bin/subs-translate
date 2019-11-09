@@ -31,7 +31,7 @@ yargs
   )
   .command(
     'translate <src> [dest]',
-    'Translate source path SRT|VTT to VTT dest path using webscraping Google Translator',
+    false,
     () => {},
     async argv => {
       // set a true|false ENV var
@@ -204,7 +204,7 @@ async function translateDir(argv_, translateFn) {
 
     try {
       if (isDirectory && depth) {
-        translateDir({ ...argv, src: fullPath }, translateFn);
+        await translateDir({ ...argv, src: fullPath }, translateFn);
       } else if (isVtt) {
         await translateFile({ ...argv, src: fullPath }, translateFn);
       }
