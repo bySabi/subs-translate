@@ -55,7 +55,7 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
   let raw;
   try {
     browser = await puppeteer.launch({
-      headless: false,
+      //headless: false,
       args: [`--proxy-server=${proxy}`],
     });
     const querys = buildQueryURL(text, slang, tlang);
@@ -75,7 +75,7 @@ async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') 
     throw e;
   } finally {
     // comment this when headless: false
-    //await browser.close();
+    await browser.close();
   }
   return raw;
 }
