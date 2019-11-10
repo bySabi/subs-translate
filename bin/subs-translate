@@ -36,6 +36,7 @@ yargs
     async argv => {
       // set a true|false ENV var
       process.env.USE_PROXY = argv.proxy;
+      process.env.USE_MULTI_TAB = argv.multi;
       handler(argv, {
         file: arg => translateFile(arg, puppyTrans),
         dir: arg => translateDir(arg, puppyTrans),
@@ -85,7 +86,12 @@ yargs
     type: 'boolean',
   })
   .option('proxy', {
-    describe: 'Use proxy with Google Translator page',
+    describe: false, // Use proxy with Google Translator page
+    default: false,
+    type: 'boolean',
+  })
+  .option('multi', {
+    describe: false, // Use multi Tabs in place of single Tabs
     default: false,
     type: 'boolean',
   })
@@ -232,9 +238,11 @@ function convert(src, dest) {
 
 // default lang 'source:EN target:ES'
 async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
+  let parsed;
   try {
     const data = fs.readFileSync(src, 'utf8');
-    const parsed = webvtt.parse(data);
+    //const parsed = webvtt.parse(data);
+    parsed = webvtt.parse(data);
     const parsedText = parsed.cues.map(cue => cue.text);
 
     // call translate function
@@ -251,6 +259,7 @@ async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
     const msg = `translating: ${src}`;
     log.error(msg);
     log.error(e);
+    // console.dir(parsed, { maxArrayLength: null });
     throw e;
   }
 }

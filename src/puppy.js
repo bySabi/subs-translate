@@ -50,42 +50,74 @@ function buildQueryURL(text, sl, tl) {
   return querys;
 }
 
-async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '') {
+async function translateWithProxy(text, slang = 'en', tlang = 'es', proxy = '', multi = false) {
+  let browser;
+  let raw;
+  try {
+    browser = await puppeteer.launch({ args: [`--proxy-server=${proxy}`] });
+    const querys = buildQueryURL(text, slang, tlang);
+    raw = multi ? await multiTab(browser, querys) : await singleTab(browser, querys);
+  } catch (e) {
+    throw e;
+  } finally {
+    await browser.close();
+  }
+  return raw;
+}
+
+// only for debug
+async function translateWithProxy2(text, slang = 'en', tlang = 'es', proxy = '', multi = false) {
   let browser;
   let raw;
   try {
     browser = await puppeteer.launch({
-      //headless: false,
+      headless: false,
       args: [`--proxy-server=${proxy}`],
     });
     const querys = buildQueryURL(text, slang, tlang);
-    raw = [];
-
-    const page = await browser.newPage(); // comment for debug
-    for (const query of querys) {
-      //const page = await browser.newPage(); // uncomment for debug
-      await page.goto(query, { waitUntil: 'load' });
-      let [res] = await page.$$eval('span.tlid-translation.translation', elem =>
-        elem.map(e => e.innerText)
-      );
-
-      res = rebuildText(res);
-      raw = raw.concat(res);
-    }
+    raw = multi ? await multiTab(browser, querys) : await singleTab(browser, querys);
   } catch (e) {
     throw e;
-  } finally {
-    // comment this when headless: false
-    await browser.close();
+  }
+  return raw;
+}
+
+async function singleTab(browser, querys) {
+  let raw = [];
+  const page = await browser.newPage();
+  for (const query of querys) {
+    await page.goto(query, { waitUntil: 'load' });
+    let [res] = await page.$$eval('span.tlid-translation.translation', elem =>
+      elem.map(e => e.innerText)
+    );
+
+    res = rebuildText(res);
+    raw = raw.concat(res);
+  }
+  return raw;
+}
+
+async function multiTab(browser, querys) {
+  let raw = [];
+  for (const query of querys) {
+    const page = await browser.newPage();
+    await page.goto(query, { waitUntil: 'load' });
+    let [res] = await page.$$eval('span.tlid-translation.translation', elem =>
+      elem.map(e => e.innerText)
+    );
+
+    res = rebuildText(res);
+    raw = raw.concat(res);
   }
   return raw;
 }
 
 async function translate(text, slang = 'en', tlang = 'es') {
   const proxy = JSON.parse(process.env.USE_PROXY) ? await require('./proxy')() : '';
+  const multi = JSON.parse(process.env.USE_MULTI_TAB);
 
   if (proxy) log.info(`Using proxy: ${proxy}`);
-  return translateWithProxy(text, slang, tlang, proxy);
+  return translateWithProxy(text, slang, tlang, proxy, multi);
 }
 
 module.exports = {

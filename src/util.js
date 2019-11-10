@@ -1,10 +1,10 @@
-const fs = require("fs");
+const fs = require('fs');
 
 function existsSync(filePath) {
   try {
     fs.lstatSync(filePath);
   } catch (err) {
-    if (err.code == "ENOENT") return false;
+    if (err.code == 'ENOENT') return false;
   }
   return true;
 }
@@ -32,5 +32,5 @@ function existsFileSync(filePath) {
 module.exports = {
   existsSync,
   existsDirSync,
-  existsFileSync
+  existsFileSync,
 };
