@@ -79,6 +79,9 @@ $ subs-translate translate-api example.vtt --slang en --tlang es --key ~/Dekstop
 $ subs-translate translate-api myVTTfolder/ --no-depth --key ~/Dekstop/private-key.json
 ```
 
+## Translation fail sometimes
+Search for "&" symbol or empty subs files
+
 ## CAUTION!!
 
 This is a project created for my own use. I have shared it in case anyone has to be useful. **Use it at your own risk**
