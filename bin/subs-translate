@@ -5,6 +5,7 @@ const yargs = require('yargs');
 const fs = require('fs');
 const path = require('path-extra');
 const srt2vtt = require('srt-to-vtt');
+const vtt2srt = require('node-vtt-to-srt');
 const webvtt = require('node-webvtt');
 const invariant = require('tiny-invariant');
 const { existsSync, existsDirSync, existsFileSync } = require('../src/util');
@@ -21,11 +22,11 @@ yargs
     'translate-api <src> [dest]',
     'Translate source path SRT|VTT to VTT dest path using Google API v3 [Registration required]',
     () => {},
-    async argv => {
+    async (argv) => {
       googleAPIkeySetupValidation(argv.key);
       handler(argv, {
-        file: arg => translateFile(arg, googleAPITrans),
-        dir: arg => translateDir(arg, googleAPITrans),
+        file: (arg) => translateFile(arg, googleAPITrans),
+        dir: (arg) => translateDir(arg, googleAPITrans),
       });
     }
   )
@@ -33,13 +34,13 @@ yargs
     'translate <src> [dest]',
     false,
     () => {},
-    async argv => {
+    async (argv) => {
       // set a true|false ENV var
       process.env.USE_PROXY = argv.proxy;
       process.env.USE_MULTI_TAB = argv.multi;
       handler(argv, {
-        file: arg => translateFile(arg, puppyTrans),
-        dir: arg => translateDir(arg, puppyTrans),
+        file: (arg) => translateFile(arg, puppyTrans),
+        dir: (arg) => translateDir(arg, puppyTrans),
       });
     }
   )
@@ -47,7 +48,13 @@ yargs
     'convert <src> [dest]',
     'Convert only source path SRT to VTT dest path',
     () => {},
-    argv => handler(argv, { file: convertFile, dir: convertDir })
+    (argv) => handler(argv, { file: convertFile, dir: convertDir })
+  )
+  .command(
+    'convert-srt <src> [dest]',
+    'Convert only source path VTT to SRT dest path',
+    () => {},
+    (argv) => handler(argv, { file: convertFileVTT, dir: convertDirVTT })
   )
   .option('key', {
     describe: 'Path to Google private key JSON',
@@ -157,6 +164,20 @@ function convertFile(argv) {
   }
 }
 
+function convertFileVTT(argv) {
+  const { purge } = argv;
+  const { src, dest, skipped } = validatePath(argv, '.srt');
+
+  if (skipped) return;
+
+  convertVTT(src, dest);
+  log.warn(`CONVERTED file: ${dest}`);
+  if (purge) {
+    fs.unlinkSync(src);
+    log.warn(`PURGED file: ${src}`);
+  }
+}
+
 function convertDir(argv_) {
   const { depth } = argv_;
   const argv = { ...argv_, out: '', dest: '' }; // 'out' and [dest] are ignored
@@ -171,6 +192,24 @@ function convertDir(argv_) {
       convertDir({ ...argv, src: fullPath });
     } else if (isSrt) {
       convertFile({ ...argv, src: fullPath });
+    }
+  }
+}
+
+function convertDirVTT(argv_) {
+  const { depth } = argv_;
+  const argv = { ...argv_, out: '', dest: '' }; // 'out' and [dest] are ignored
+  const src = path.resolve(argv_.src); // absolute path
+  const dir = fs.readdirSync(src);
+  for (const file of dir) {
+    const fullPath = path.join(src, file);
+    const isDirectory = fs.lstatSync(fullPath).isDirectory();
+    const isVtt = fullPath.toLowerCase().endsWith('.vtt');
+
+    if (isDirectory && depth) {
+      convertDirVTT({ ...argv, src: fullPath });
+    } else if (isVtt) {
+      convertFileVTT({ ...argv, src: fullPath });
     }
   }
 }
@@ -227,9 +266,16 @@ async function translateDir(argv_, translateFn) {
 
 function convert(src, dest) {
   try {
-    fs.createReadStream(src)
-      .pipe(srt2vtt())
-      .pipe(fs.createWriteStream(dest));
+    fs.createReadStream(src).pipe(srt2vtt()).pipe(fs.createWriteStream(dest));
+  } catch (e) {
+    log.error(e);
+    throw e;
+  }
+}
+
+function convertVTT(src, dest) {
+  try {
+    fs.createReadStream(src).pipe(vtt2srt()).pipe(fs.createWriteStream(dest));
   } catch (e) {
     log.error(e);
     throw e;
@@ -243,7 +289,7 @@ async function translate(src, dest, slang = 'en', tlang = 'es', translateFn) {
     const data = fs.readFileSync(src, 'utf8');
     //const parsed = webvtt.parse(data);
     parsed = webvtt.parse(data);
-    const parsedText = parsed.cues.map(cue => cue.text);
+    const parsedText = parsed.cues.map((cue) => cue.text);
 
     // call translate function
     const response = await translateFn(parsedText, slang, tlang);
