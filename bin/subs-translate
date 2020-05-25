@@ -99,7 +99,7 @@ yargs
   })
   .option('multi', {
     describe: false, // Use multi Tabs in place of single Tabs
-    default: false,
+    default: true,
     type: 'boolean',
   })
   .option('level', {
